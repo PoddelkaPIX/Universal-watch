@@ -58,8 +58,7 @@ class Ui_MainWindow(object):
         self.DateNow.setMaximumSize(QtCore.QSize(70, 30))
         self.DateNow.setLayoutDirection(QtCore.Qt.RightToLeft)
         self.DateNow.setStyleSheet("font: 8pt \"Myriad Variable Concept SemiExt\";\n"
-"color: rgb(255, 239, 240);\n"
-"")
+                                   "color: rgb(255, 255, 255);\n""")
         self.DateNow.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.DateNow.setText("")
         self.DateNow.setObjectName("DateNow")
@@ -68,7 +67,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_2.addLayout(self.horizontalLayout)
         self.gridLayout_2.addLayout(self.verticalLayout_2, 0, 0, 1, 1)
         self.widget = QtWidgets.QWidget(self.centralwidget)
-        self.widget.setStyleSheet("background-color: rgb(5, 20, 90);")
+        self.widget.setStyleSheet("background-color: rgb(5, 30, 90);")
         self.widget.setObjectName("widget")
         self.gridLayout_2.addWidget(self.widget, 1, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)

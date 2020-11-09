@@ -1,11 +1,15 @@
+import os
 import sys
 import datetime
-from pygame import mixer
+import time
 
+import pygame
+from pygame.locals import *
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtCore import QTime, QTimer, QUrl
 from PyQt5.QtWidgets import QMainWindow, QLCDNumber, QPushButton, QWidget, QLineEdit, QStackedWidget, QGridLayout, \
-    QComboBox, QFileDialog, QMessageBox
+    QComboBox, QFileDialog, QMessageBox, QLabel, QListWidget, QFormLayout, QHBoxLayout, QVBoxLayout
+from pygame.mixer import Sound
 
 from AppInterface import Ui_MainWindow
 
@@ -14,6 +18,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+
+        self.FileName = 'C:/Users/gnebe/Desktop/Python/Universal-watch/Sounds/5Sta Family - Первый снег.mp3'
 
         # Подключение к кнопкам функционал
         self.AlarmClockBut.clicked.connect(self.OpenAlarmClock)
@@ -30,14 +36,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.StopWatchWidget = QWidget()
 
         # Интерфейс будильника
+
         self.AddAlarmButton = QtWidgets.QPushButton('ДОБАВИТЬ', self.ClockWidget)
         self.AddAlarmButton.clicked.connect(self.AddAlarmsComboBoxItem)
 
-        self.DeleteAlarmButton = QtWidgets.QPushButton('УДАЛИТЬ', self.ClockWidget)
-        self.DeleteAlarmButton.clicked.connect(self.AddAlarmsComboBoxItem)
-
-        self.StartAlarmButton = QtWidgets.QPushButton('СТАРТ', self.ClockWidget)
-        self.StartAlarmButton.clicked.connect(self.StartCountTime)
+        self.StartAlarmButton = QtWidgets.QPushButton('----------', self.ClockWidget)
 
         self.StopAlarmButton = QtWidgets.QPushButton('СТОП', self.ClockWidget)
         self.StopAlarmButton.clicked.connect(self.StopCountTime)
@@ -63,53 +66,49 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         for i in range(0, 24):
             self.HoursComboBox.addItem(str(i))
 
-        self.AlarmsComboBox = QtWidgets.QComboBox(self.ClockWidget)
-        self.AlarmsComboBox.addItem('<Не выбрано>')
+        self.MusicListComboBox = QComboBox(self.ClockWidget)
+        self.MusicListComboBox.addItem('<Не выбрано>')
 
-        self.TimeLeft = QtWidgets.QLCDNumber(self.ClockWidget)
-        self.TimeLeft.setMinimumWidth(400)
+        self.ListOfAlarmClocks = QListWidget(self.ClockWidget)
+        self.ListOfAlarmClocks.setMinimumWidth(350)
 
-        self.MusicListView = QtWidgets.QListView(self.ClockWidget)
+        self.ListOfPastAlarmClocks = QListWidget(self.ClockWidget)
+        self.ListOfPastAlarmClocks.itemActivated.connect(self.DeletePastClock)
 
-        self.formLayout = QtWidgets.QFormLayout()
-        self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.MinutesComboBox)
-        self.formLayout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.HoursComboBox)
+        self.formLayout = QFormLayout()
+        self.formLayout.setWidget(0, QFormLayout.FieldRole, self.MinutesComboBox)
+        self.formLayout.setWidget(0, QFormLayout.LabelRole, self.HoursComboBox)
 
-        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.addWidget(self.StartAlarmButton)
         self.horizontalLayout.addWidget(self.StopAlarmButton)
         self.horizontalLayout.addWidget(self.PauseButton)
 
-        self.verticalLayout = QtWidgets.QVBoxLayout()
-        self.verticalLayout.addWidget(self.TimeLeft)
+        self.verticalLayout = QVBoxLayout()
+        self.verticalLayout.addWidget(self.ListOfAlarmClocks)
 
-        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.addWidget(self.AddMusicButton)
         self.horizontalLayout_2.addWidget(self.AddressMusicLine)
+        self.horizontalLayout_2.addWidget(self.MusicListComboBox)
 
         SpacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout = QGridLayout(self.ClockWidget)
         self.gridLayout.addWidget(self.AddAlarmButton, 4, 1, 1, 1)
-        self.gridLayout.addWidget(self.DeleteAlarmButton, 5, 1, 1, 1)
-        self.gridLayout.addWidget(self.MusicListView, 2, 1, 1, 1)
+        self.gridLayout.addWidget(self.ListOfPastAlarmClocks, 2, 1, 1, 1)
         self.gridLayout.addLayout(self.formLayout, 6, 1, 1, 1)
         self.gridLayout.addLayout(self.horizontalLayout, 4, 2, 1, 1)
-        self.gridLayout.addWidget(self.AlarmsComboBox, 3, 1, 1, 1)
         self.gridLayout.addLayout(self.verticalLayout, 2, 2, 1, 1)
         self.gridLayout.addLayout(self.horizontalLayout_2, 1, 1, 1, 2)
         self.gridLayout.addItem(SpacerItem, 2, 1, 1, 1)
 
         # Интерфейс секундомера
         self.formLayout = QtWidgets.QFormLayout(self.StopWatchWidget)
-        self.formLayout.setObjectName("formLayout")
         self.verticalLayout = QtWidgets.QVBoxLayout()
-        self.verticalLayout.setObjectName("verticalLayout")
         self.lcdNumber = QtWidgets.QLCDNumber(self.StopWatchWidget)
-        self.lcdNumber.setObjectName("lcdNumber")
         self.verticalLayout.addWidget(self.lcdNumber)
         self.formLayout.setLayout(0, QtWidgets.QFormLayout.FieldRole, self.verticalLayout)
         self.pushButton = QtWidgets.QPushButton(self.StopWatchWidget)
-        self.pushButton.setObjectName("pushButton")
         self.formLayout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.pushButton)
         self.listView = QtWidgets.QListView(self.StopWatchWidget)
         self.formLayout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.listView)
@@ -124,6 +123,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Запуск таймера
         self.showDateTime()
 
+        # 'C:/Users/gnebe/Desktop/Python/Universal-watch/Sounds/5Sta Family - Первый снег.mp3'
+        pygame.mixer.init()
+
     def showDateTime(self):
         time = QTime.currentTime()
         text = time.toString('hh:mm')
@@ -133,51 +135,38 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.TimeNow.display(text)
         self.DateNow.setText(str(datetime.date.today()))
 
+    def DeletePastClock(self):
+        self.FileName = self.AddressMusicLine.text() + '/' + self.MusicListView.currentItem().text()
+
     def DialogAddMusic(self):
         try:
-            fname = QFileDialog.getOpenFileName(self, 'Выбрать папку', '')[0]
+            fname = QFileDialog.getExistingDirectory(self, "Выбрать папку", ".")
+            files = os.listdir(fname)
+            for i in files:
+                if '.mp3' in i:
+                    self.MusicListComboBox.addItem(i)
             self.AddressMusicLine.setText(fname)
-            mixer.init()
-            mixer.music.load(fname)
-            mixer.music.play()
         except:
-            pass
-
-    def StartCountTime(self):
-        if self.AlarmsComboBox.currentText() != '<Не выбрано>':
-            self.StartAlarmButton.hide()
-            self.StopAlarmButton.show()
-            self.PauseButton.show()
-            self.AlarmsComboBox.setEnabled(False)
-            self.MinutesComboBox.setEnabled(False)
-            self.HoursComboBox.setEnabled(False)
-            self.AddAlarmButton.setEnabled(False)
-            self.DeleteAlarmButton.setEnabled(False)
-            self.MusicListView.setEnabled(False)
-            self.AddMusicButton.setEnabled(False)
-            self.AddressMusicLine.setEnabled(False)
-        else:
-            QMessageBox.critical(self, "Не выбрано время", "Укажите время срабатывания будильника", QMessageBox.Ok)
+            print('Что-то не так с музыкой')
 
     def StopCountTime(self):
+        pygame.mixer.music.stop()
+
         self.StopAlarmButton.hide()
         self.PauseButton.hide()
         self.StartAlarmButton.show()
-        self.AlarmsComboBox.setEnabled(True)
+        self.MusicListComboBox.setEnabled(True)
         self.MinutesComboBox.setEnabled(True)
         self.HoursComboBox.setEnabled(True)
         self.AddAlarmButton.setEnabled(True)
         self.DeleteAlarmButton.setEnabled(True)
-        self.MusicListView.setEnabled(True)
-        self.AddMusicButton.setEnabled(True)
         self.AddressMusicLine.setEnabled(True)
 
     def AddAlarmsComboBoxItem(self):
         item = self.HoursComboBox.currentText() + ':' + self.MinutesComboBox.currentText()
         print(item)
-        self.AlarmsComboBox.addItem(item)
-        self.AlarmsComboBox.setCurrentText(item)
-        self.TimeLeft.display(item)
+        self.ListOfPastAlarmClocks.addItem(item)
+        self.ListOfAlarmClocks.addItem('<(' + item + ')>')
 
     def OpenAlarmClock(self):
         self.StopWatchWidget.hide()
