@@ -13,9 +13,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.setFixedSize(755, 784)
-        MainWindow.setStyleSheet("background-color: rgb(13, 22, 75);\n"
-"gridline-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0, 0, 0, 255), stop:1 rgba(255, 255, 155, 155));")
+        MainWindow.setFixedSize(755, 584)
+        MainWindow.setStyleSheet("background-color: rgb(13, 22, 75);\n")
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayout_2 = QtWidgets.QGridLayout(self.centralwidget)
