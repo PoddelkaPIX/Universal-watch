@@ -2,11 +2,13 @@ import os
 import sys
 import datetime
 import sqlite3
-
+import time
 import pygame
+
+from PyQt5.QtGui import QFont
 from pygame.locals import *
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
-from PyQt5.QtCore import QTime, QTimer, QUrl
+from PyQt5.QtCore import QTime, QTimer, QUrl, QDateTime
 from PyQt5.QtWidgets import QMainWindow, QLCDNumber, QPushButton, QWidget, QLineEdit, QStackedWidget, QGridLayout, \
     QComboBox, QFileDialog, QMessageBox, QLabel, QListWidget, QFormLayout, QHBoxLayout, QVBoxLayout, QDialog, \
     QErrorMessage, QInputDialog, QListView
@@ -20,15 +22,29 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         super().__init__()
         self.setupUi(self)
 
+        self.ms = 0
+        self.sec = 0
+        self.min = 0
+        self.hour = 0
+
+        self.FirstHour = 0
+        self.FirstMin = 0
+        self.FirstSec = 0
+        self.FirstMs = 0
+
         # Подключение к кнопкам функционал
         self.AlarmClockBut.clicked.connect(self.OpenAlarmClock)
         self.StopWatchBut.clicked.connect(self.OpenStopWatch)
 
         # Создание таймера
-        timer = QTimer(self)
-        timer.timeout.connect(self.showDateTime)
-        timer.timeout.connect(self.AlarmIsRinging)
-        timer.start(1000)
+        self.timerTime = QTimer(self)
+        self.timerTime.timeout.connect(self.showDateTime)
+        self.timerTime.timeout.connect(self.AlarmIsRinging)
+        self.timerTime.start(1000)
+
+        self.timerStopWatch = QtCore.QTimer(self)
+        self.timerStopWatch.setInterval(10)                                                    # +
+        self.timerStopWatch.timeout.connect(self.displayTime)
 
         # Выравникание виджетов под размер окна
         self.MainLayout = QGridLayout(self.widget)
@@ -95,22 +111,35 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.gridLayout.addItem(SpacerItem, 2, 1, 1, 1)
 
         # Интерфейс секундомера
-        self.lcdNumber = QLCDNumber(self.StopWatchWidget)
+        self.LabelNumber = QLabel(self.StopWatchWidget)
+        self.LabelNumber.setAlignment(QtCore.Qt.AlignCenter)
+        self.LabelNumber.setGeometry(QtCore.QRect(222, 195, 299, 46))
+        self.LabelNumber.setText('00:00:00:000')
+        self.LabelNumber.setFont(QFont('Arial', 40))
 
-        self.StartPushButton = QPushButton('Старт', self.StopWatchWidget)
+        self.StartPushButton = QPushButton('СТАРТ', self.StopWatchWidget)
+        self.StartPushButton.clicked.connect(self.StartStopWatchTimer)
 
-        self.StopPushButton = QPushButton('Стоп', self.StopWatchWidget)
+        self.IntervalPushButton = QPushButton('ИНТЕРВАЛ', self.StopWatchWidget)
+        self.IntervalPushButton.clicked.connect(self.AddInterval)
+        self.IntervalPushButton.hide()
 
-        self.listView = QListView(self.StopWatchWidget)
+        self.ResetPushButton = QPushButton('СБРОС', self.StopWatchWidget)
+        self.ResetPushButton.clicked.connect(self.reset)
+        self.ResetPushButton.hide()
+
+
+        self.listView = QListWidget(self.StopWatchWidget)
         self.listView.setMinimumHeight(400)
 
         self.verticalLayout = QtWidgets.QVBoxLayout()
-        self.verticalLayout.addWidget(self.lcdNumber)
+        self.verticalLayout.addWidget(self.LabelNumber)
 
         self.formLayout = QFormLayout(self.StopWatchWidget)
         self.formLayout.setLayout(0, QFormLayout.FieldRole, self.verticalLayout)
         self.formLayout.setWidget(1, QFormLayout.FieldRole, self.StartPushButton)
-        self.formLayout.setWidget(2, QFormLayout.FieldRole, self.StopPushButton)
+        self.formLayout.setWidget(2, QFormLayout.FieldRole, self.ResetPushButton)
+        self.formLayout.setWidget(3, QFormLayout.FieldRole, self.IntervalPushButton)
         self.formLayout.setWidget(0, QFormLayout.LabelRole, self.listView)
 
         # Добавление виджетов с устройствами в главное размещение
@@ -135,7 +164,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.horizontalLayout.addWidget(self.Ok_button)
         self.verticalLayout.addLayout(self.horizontalLayout)
 
-        with open('AddressMusic.txt', 'r') as Address:
+        with open('MusicInfo/AddressMusic.txt', 'r') as Address:
             add = Address.readline()
             self.AddressMusicLine.setText(add)
 
@@ -145,7 +174,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             self.AddressMusic = add
 
-        with open('SelectedMusic.txt', 'r') as Music:
+        with open('MusicInfo/SelectedMusic.txt', 'r') as Music:
             self.MusicListComboBox.currentIndex()
             self.FileName = self.AddressMusic + '/' + Music.read()
 
@@ -227,7 +256,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def UpdateMusic(self):
         self.FileName = self.AddressMusicLine.text() + '/' + self.MusicListComboBox.currentText()
-        with open('SelectedMusic.txt', 'w') as Music:
+        with open('MusicInfo/SelectedMusic.txt', 'w') as Music:
             Music.write(self.MusicListComboBox.currentText())
 
     def DialogAddMusic(self):
@@ -241,7 +270,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.AddressMusicLine.setText(fname)
             self.MusicListComboBox.setCurrentIndex(1)
 
-            with open('AddressMusic.txt', 'w') as file:
+            with open('MusicInfo/AddressMusic.txt', 'w') as file:
                 file.write(fname)
 
 
@@ -288,6 +317,86 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.ClockWidget.hide()
         self.StopWatchWidget.show()
 
+    def start(self):
+        self.timer.start()
+        self.start_button.setText("Pause")
+        self.start_button.clicked.disconnect()
+        self.start_button.clicked.connect(self.stop)
+
+    def reset(self):
+        self.ms = 0
+        self.sec = 0
+        self.min = 0
+        self.hour = 0
+        self.LabelNumber.setText('00:00:00:00')
+        self.ResetPushButton.hide()
+        self.StartPushButton.setText('СТАРТ')
+        self.listView.clear()
+
+    def displayTime(self):
+        self.LabelNumber.setText("%02d:%02d:%02d:%02d" % (self.hour, self.min, self.sec, self.ms))
+        if self.ms != 99:
+            self.ms += 1
+        else:
+            self.ms = 0
+            if self.sec != 59:
+                self.sec += 1
+            else:
+                self.sec = 0
+                if self.min != 59:
+                    self.min += 1
+                else:
+                    self.min = 0
+                    if self.hour != 23:
+                        self.hour += 1
+                    else:
+                        self.hour = 0
+
+    def AddInterval(self):
+        if self.ms < self.FirstMs:
+            ms = 100 - abs(self.ms - self.FirstMs)
+        else:
+            ms = abs(self.FirstMs - self.ms)
+
+        if self.sec < self.FirstSec:
+            sec = 100 - abs(self.sec - self.FirstSec)
+        else:
+            sec = abs(self.FirstSec - self.sec)
+
+        if self.min < self.FirstMin:
+            min = 100 - abs(self.min - self.FirstMin)
+        else:
+            min = abs(self.FirstMin - self.min)
+
+        if self.listView.count() == 0:
+            FirstItem = ("%02d:%02d:%02d:%02d" % (self.hour, self.min, self.sec, self.ms))
+            self.listView.addItem('Время           Интервал')
+            self.listView.addItem(FirstItem + '    ' + FirstItem)
+        else:
+            item = ("%02d:%02d:%02d:%02d" % (self.hour, self.min, self.sec, self.ms) +
+                    '    ' + "%02d:%02d:%02d:%02d" % (self.hour - self.FirstHour, min,
+                                                      sec, ms))
+            self.listView.addItem(item)
+        self.FirstHour = self.hour
+        self.FirstMin = self.min
+        self.FirstSec = self.sec
+        self.FirstMs = self.ms
+
+    def StartStopWatchTimer(self):
+        if self.StartPushButton.text() == 'СТАРТ':
+            self.timerStopWatch.start()
+            self.IntervalPushButton.show()
+            self.StartPushButton.setText('ОСТАНОВИТЬ')
+        elif self.StartPushButton.text() == 'ОСТАНОВИТЬ':
+            self.StartPushButton.setText('ВОЗОБНОВИТЬ')
+            self.IntervalPushButton.hide()
+            self.ResetPushButton.show()
+            self.timerStopWatch.stop()
+        elif self.StartPushButton.text() == 'ВОЗОБНОВИТЬ':
+            self.timerStopWatch.start()
+            self.StartPushButton.setText('ОСТАНОВИТЬ')
+            self.IntervalPushButton.show()
+            self.ResetPushButton.hide()
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
