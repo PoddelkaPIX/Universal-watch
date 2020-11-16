@@ -2,26 +2,24 @@ import os
 import sys
 import datetime
 import sqlite3
-import time
 import pygame
 
-from PyQt5.QtGui import QFont
-from pygame.locals import *
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
-from PyQt5.QtCore import QTime, QTimer, QUrl, QDateTime
-from PyQt5.QtWidgets import QMainWindow, QLCDNumber, QPushButton, QWidget, QLineEdit, QStackedWidget, QGridLayout, \
-    QComboBox, QFileDialog, QMessageBox, QLabel, QListWidget, QFormLayout, QHBoxLayout, QVBoxLayout, QDialog, \
-    QErrorMessage, QInputDialog, QListView
-from pygame.mixer import Sound
-
 from AppInterface import Ui_MainWindow
+from PyQt5.QtGui import QFont
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QTime, QTimer
+from PyQt5.QtWidgets import QMainWindow, QPushButton, QWidget, QGridLayout, \
+                            QComboBox, QFileDialog, QMessageBox, QLabel, QListWidget, \
+                            QFormLayout, QHBoxLayout, QVBoxLayout
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
+        # Загружка основного интерфейса программы из отдельного файла
         self.setupUi(self)
 
+        # Переменные для работы секундомера
         self.ms = 0
         self.sec = 0
         self.min = 0
@@ -32,18 +30,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.FirstSec = 0
         self.FirstMs = 0
 
-        # Подключение к кнопкам функционал
+        # Кнопкам для переключения будильника и секундомера
         self.AlarmClockBut.clicked.connect(self.OpenAlarmClock)
         self.StopWatchBut.clicked.connect(self.OpenStopWatch)
 
-        # Создание таймера
+        # Таймер для обновления времени на таблойде
         self.timerTime = QTimer(self)
         self.timerTime.timeout.connect(self.showDateTime)
         self.timerTime.timeout.connect(self.AlarmIsRinging)
         self.timerTime.start(1000)
 
+        # Таймер секундомера
         self.timerStopWatch = QtCore.QTimer(self)
-        self.timerStopWatch.setInterval(10)                                                    # +
+        self.timerStopWatch.setInterval(10)
         self.timerStopWatch.timeout.connect(self.displayTime)
 
         # Выравникание виджетов под размер окна
@@ -52,16 +51,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.StopWatchWidget = QWidget()
 
         # Интерфейс будильника
-
         self.AddAlarmButton = QtWidgets.QPushButton('ДОБАВИТЬ', self.ClockWidget)
         self.AddAlarmButton.clicked.connect(self.AddAlarmsComboBoxItem)
+        self.AddAlarmButton.setStyleSheet('background-color: rgb(133, 133, 133);')
+
+        self.MusicListComboBox = QComboBox(self.ClockWidget)
+        self.MusicListComboBox.addItem('<Выбрать песню>')
+        self.MusicListComboBox.activated.connect(self.UpdateMusic)
+        self.MusicListComboBox.setMaximumWidth(200)
+        self.MusicListComboBox.setStyleSheet('background-color: rgb(133, 133, 133);')
 
         self.AddMusicButton = QtWidgets.QPushButton('Добавить свою музыку', self.ClockWidget)
         self.AddMusicButton.clicked.connect(self.DialogAddMusic)
+        self.AddMusicButton.setStyleSheet('background-color: rgb(133, 133, 133);')
+
         self.AddressMusicLine = QtWidgets.QLineEdit(self.ClockWidget)
+        self.AddressMusicLine.setEnabled(False)
+        self.AddressMusicLine.setStyleSheet('color: rgb(143, 143, 143);'
+                                            'border: 0px solid #ccc')
 
         self.MinutesComboBox = QComboBox(self.ClockWidget)
         self.MinutesComboBox.setMinimumWidth(200)
+        self.MinutesComboBox.setStyleSheet('background-color: rgb(63, 63, 63);')
         for i in range(0, 60):
             if i < 10:
                 self.MinutesComboBox.addItem('0' + str(i))
@@ -70,23 +81,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.HoursComboBox = QComboBox(self.ClockWidget)
         self.HoursComboBox.setMinimumWidth(100)
+        self.HoursComboBox.setStyleSheet('background-color: rgb(63, 63, 63);')
         for i in range(0, 24):
             if i < 10:
                 self.HoursComboBox.addItem('0' + str(i))
             else:
                 self.HoursComboBox.addItem(str(i))
 
-        self.MusicListComboBox = QComboBox(self.ClockWidget)
-        self.MusicListComboBox.addItem('<Выбрать песню>')
-        self.MusicListComboBox.activated.connect(self.UpdateMusic)
-        self.MusicListComboBox.setMaximumWidth(200)
-
         self.ListDeleteAlarmClocks = QListWidget(self.ClockWidget)
         self.ListDeleteAlarmClocks.setMaximumWidth(20)
         self.ListDeleteAlarmClocks.itemClicked.connect(self.DeleteAlarmClock)
+        self.ListDeleteAlarmClocks.setStyleSheet('border: 2px solid rgb(143, 143, 143);'
+                                                 'background-color: rgb(63, 63, 63);')
 
         self.ListOfPastAlarmClocks = QListWidget(self.ClockWidget)
         self.ListOfPastAlarmClocks.itemActivated.connect(self.StartORStopAlarmClock)
+        self.ListOfPastAlarmClocks.setStyleSheet('border: 2px solid rgb(143, 143, 143);'
+                                                 'background-color: rgb(63, 63, 63);')
 
         self.formLayout = QFormLayout()
         self.formLayout.setWidget(0, QFormLayout.FieldRole, self.MinutesComboBox)
@@ -116,21 +127,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.LabelNumber.setGeometry(QtCore.QRect(222, 195, 299, 46))
         self.LabelNumber.setText('00:00:00:000')
         self.LabelNumber.setFont(QFont('Arial', 40))
+        self.LabelNumber.setStyleSheet('color: rgb(143, 143, 143)')
 
         self.StartPushButton = QPushButton('СТАРТ', self.StopWatchWidget)
         self.StartPushButton.clicked.connect(self.StartStopWatchTimer)
+        self.StartPushButton.setStyleSheet('background-color: rgb(133, 133, 133);')
 
         self.IntervalPushButton = QPushButton('ИНТЕРВАЛ', self.StopWatchWidget)
         self.IntervalPushButton.clicked.connect(self.AddInterval)
+        self.IntervalPushButton.setStyleSheet('background-color: rgb(133, 133, 133);')
         self.IntervalPushButton.hide()
 
         self.ResetPushButton = QPushButton('СБРОС', self.StopWatchWidget)
         self.ResetPushButton.clicked.connect(self.reset)
         self.ResetPushButton.hide()
-
+        self.ResetPushButton.setStyleSheet('background-color: rgb(133, 133, 133);')
 
         self.listView = QListWidget(self.StopWatchWidget)
         self.listView.setMinimumHeight(400)
+        self.listView.setStyleSheet('border: 2px solid rgb(143, 143, 143);'
+                                    'background-color: rgb(63, 63, 63);')
 
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.verticalLayout.addWidget(self.LabelNumber)
@@ -149,10 +165,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Прячем не нужные виджеты
         self.StopWatchWidget.hide()
 
-        # Запуск таймера
-        self.showDateTime()
-        self.LoadAlarmClocks()
-
+        # Окно уведомления о сработанном будильнике
         self.wid = QWidget()
         self.wid.resize(400, 300)
         self.verticalLayout = QVBoxLayout(self.wid)
@@ -164,6 +177,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.horizontalLayout.addWidget(self.Ok_button)
         self.verticalLayout.addLayout(self.horizontalLayout)
 
+        # Загрузка информации о местоположении и названия выбранной музыки
         with open('MusicInfo/AddressMusic.txt', 'r') as Address:
             add = Address.readline()
             self.AddressMusicLine.setText(add)
@@ -178,6 +192,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.MusicListComboBox.currentIndex()
             self.FileName = self.AddressMusic + '/' + Music.read()
 
+        self.showDateTime()
+        self.LoadAlarmClocks()
+
+    # Загрузка будильников из БД
     def LoadAlarmClocks(self):
         con = sqlite3.connect('AlarmClock.db')
         cur = con.cursor()
@@ -187,6 +205,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.ListDeleteAlarmClocks.addItem('X')
         con.close()
 
+    # Вывод текущего времени на табло
     def showDateTime(self):
         timeNow = QTime.currentTime()
         text = timeNow.toString('hh:mm')
@@ -196,6 +215,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.TimeNow.display(text)
         self.DateNow.setText(str(datetime.date.today()))
 
+    # Включение и выключение будильника
     def StartORStopAlarmClock(self):
         a = self.ListOfPastAlarmClocks.currentItem().text().replace('<<(', '')
         a = a.replace(')>>', '')
@@ -210,6 +230,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         con.commit()
         con.close()
 
+    # Удаление будильника из списка
     def DeleteAlarmClock(self):
         Row = self.ListDeleteAlarmClocks.currentIndex().row()
         Item = self.ListOfPastAlarmClocks.item(Row).text()
@@ -222,6 +243,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         con.commit()
         con.close()
 
+    # Срабатывание будильника
     def AlarmIsRinging(self):
         time = QTime.currentTime()
         text = time.toString('hh:mm')
@@ -250,15 +272,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 self.wid.show()
 
+    # Кнопка ОК нажата
     def OkPressed(self):
         pygame.mixer.music.stop()
         self.wid.hide()
 
+    # Обновить информацию о выбранной музыке
     def UpdateMusic(self):
         self.FileName = self.AddressMusicLine.text() + '/' + self.MusicListComboBox.currentText()
         with open('MusicInfo/SelectedMusic.txt', 'w') as Music:
             Music.write(self.MusicListComboBox.currentText())
 
+    # Диалог выбора папки с музыкой и добавление mp3 из этой папки
     def DialogAddMusic(self):
         try:
             fname = QFileDialog.getExistingDirectory(self, "Выбрать папку", ".")
@@ -272,16 +297,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             with open('MusicInfo/AddressMusic.txt', 'w') as file:
                 file.write(fname)
-
-
-            # con = sqlite3.connect('AlarmClock.db')
-            # cur = con.cursor()
-            # cur.execute("""UPDATE Clocks set""", (item, )).fetchall()
-            # con.commit()
-            # con.close()
         except:
             print('Музыка не была выбрана')
 
+    # Добавление будильников из БД в виджет
     def AddAlarmsComboBoxItem(self):
         Alarm = False
         if self.ListOfPastAlarmClocks.count() < 14:
@@ -309,20 +328,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             msg.setWindowTitle("Ошибка")
             msg.exec_()
 
+    # Окрытие интерфейса с будильником
     def OpenAlarmClock(self):
         self.StopWatchWidget.hide()
         self.ClockWidget.show()
 
+    # Открытие интерфейса с секундомером
     def OpenStopWatch(self):
         self.ClockWidget.hide()
         self.StopWatchWidget.show()
 
-    def start(self):
-        self.timer.start()
-        self.start_button.setText("Pause")
-        self.start_button.clicked.disconnect()
-        self.start_button.clicked.connect(self.stop)
-
+    # Перезапуск секундомера
     def reset(self):
         self.ms = 0
         self.sec = 0
@@ -333,6 +349,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.StartPushButton.setText('СТАРТ')
         self.listView.clear()
 
+    # Обновление пройденого времени у секундомера
     def displayTime(self):
         self.LabelNumber.setText("%02d:%02d:%02d:%02d" % (self.hour, self.min, self.sec, self.ms))
         if self.ms != 99:
@@ -352,6 +369,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     else:
                         self.hour = 0
 
+    # Вычисление интервала между промежутками времени
     def AddInterval(self):
         if self.ms < self.FirstMs:
             ms = 100 - abs(self.ms - self.FirstMs)
@@ -368,13 +386,27 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
             min = abs(self.FirstMin - self.min)
 
+        if self.hour < self.FirstHour:
+            hour = 100 - abs(self.hour - self.FirstHour)
+        else:
+            hour = abs(self.FirstHour - self.hour)
+
+        if self.min > self.FirstMin:
+            min -= 1
+        elif self.sec > self.FirstSec:
+            sec -= 1
+        elif self.min > self.FirstMin:
+            min -= 1
+        elif self.hour > self.FirstHour:
+            hour -= 1
+
         if self.listView.count() == 0:
             FirstItem = ("%02d:%02d:%02d:%02d" % (self.hour, self.min, self.sec, self.ms))
             self.listView.addItem('Время           Интервал')
             self.listView.addItem(FirstItem + '    ' + FirstItem)
         else:
             item = ("%02d:%02d:%02d:%02d" % (self.hour, self.min, self.sec, self.ms) +
-                    '    ' + "%02d:%02d:%02d:%02d" % (self.hour - self.FirstHour, min,
+                    '    ' + "%02d:%02d:%02d:%02d" % (hour, min,
                                                       sec, ms))
             self.listView.addItem(item)
         self.FirstHour = self.hour
@@ -382,6 +414,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.FirstSec = self.sec
         self.FirstMs = self.ms
 
+    # Управление секундомером
     def StartStopWatchTimer(self):
         if self.StartPushButton.text() == 'СТАРТ':
             self.timerStopWatch.start()
@@ -397,6 +430,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.StartPushButton.setText('ОСТАНОВИТЬ')
             self.IntervalPushButton.show()
             self.ResetPushButton.hide()
+
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
